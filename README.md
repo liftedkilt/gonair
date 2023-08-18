@@ -1,4 +1,4 @@
-```
+
 # gonair (Go On Air)
 
 gonair is a utility that detects when a macOS webcam is turned on or off and emits an MQTT message. This allows systems like Home Assistant to trigger automations based on the webcam's state.
@@ -60,5 +60,3 @@ go run gonair.go
 ## License
 
 gonair is licensed under the BSD 2-Clause License. Refer to the `LICENSE` file for details.
-
-```
