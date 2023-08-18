@@ -12,18 +12,22 @@ import (
 )
 
 type MQTTConfig struct {
-	client mqtt.Client
-	topic  string
+	client       mqtt.Client
+	topic        string
+	style        string
+	predicate    string
+	powerState   string
+	powerStateOn string
 }
 
 func main() {
-	// Load .env file
 	if err := godotenv.Load(); err != nil {
 		fmt.Println("Error loading .env file")
 		os.Exit(1)
 	}
 
 	opts := mqtt.NewClientOptions()
+
 	opts.AddBroker(os.Getenv("MQTT_BROKER"))
 	opts.SetClientID(os.Getenv("MQTT_CLIENT_ID"))
 	opts.SetUsername(os.Getenv("MQTT_USERNAME"))
@@ -36,8 +40,12 @@ func main() {
 	defer client.Disconnect(250)
 
 	config := MQTTConfig{
-		client: client,
-		topic:  os.Getenv("MQTT_TOPIC"),
+		client:       client,
+		topic:        os.Getenv("MQTT_TOPIC"),
+		style:        os.Getenv("LOG_STYLE"),
+		predicate:    os.Getenv("LOG_PREDICATE"),
+		powerState:   os.Getenv("LOG_POWER_STATE"),
+		powerStateOn: os.Getenv("LOG_POWER_STATE_ON"),
 	}
 
 	config.monitorLogs()
@@ -49,7 +57,7 @@ func (m MQTTConfig) publishMessage(message string) {
 }
 
 func (m MQTTConfig) monitorLogs() {
-	cmd := exec.Command("log", "stream", "--style", "syslog", "--predicate", `subsystem contains "com.apple.UVCExtension" and composedMessage contains "Post PowerLog"`)
+	cmd := exec.Command("log", "stream", "--style", m.style, "--predicate", m.predicate)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		panic(err)
@@ -69,15 +77,14 @@ func (m MQTTConfig) monitorLogs() {
 }
 
 func (m MQTTConfig) handleLogEvent(log string) {
-	if strings.Contains(log, "VDCAssistant_Power_State") {
-		// Extract the power state
-		powerState := extractPowerState(log)
+	if strings.Contains(log, m.powerState) {
+		powerState := m.testPowerState(log)
 		m.processPowerState(powerState)
 	}
 }
 
-func extractPowerState(log string) bool {
-	return strings.Contains(log, `VDCAssistant_Power_State" = On`)
+func (m MQTTConfig) testPowerState(log string) bool {
+	return strings.Contains(log, m.powerStateOn)
 }
 
 func (m MQTTConfig) processPowerState(state bool) {
